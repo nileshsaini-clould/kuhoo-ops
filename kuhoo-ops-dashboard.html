@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuhoo Ops Dashboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{--bg:#0f1117;--surface:#181c27;--surface2:#1e2435;--border:#2a3048;--accent:#4f6ef7;--accent2:#7c3aed;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--sky:#38bdf8;--text:#e8eaf0;--muted:#7b829a;--pill:#242a3e;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* ── FULLSCREEN OVERLAYS ── */
+.screen{position:fixed;inset:0;background:var(--bg);z-index:900;display:flex;align-items:center;justify-content:center;}
+.screen.hidden{display:none;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 32px;width:400px;max-width:96vw;text-align:center;}
+.k-logo{width:52px;height:52px;border-radius:13px;margin:0 auto 16px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;}
+.screen-title{font-size:20px;font-weight:700;margin-bottom:4px;}
+.screen-sub{font-size:13px;color:var(--muted);margin-bottom:24px;}
+
+/* member grid */
+.member-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
+.member-card{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:2px solid var(--border);background:var(--surface2);cursor:pointer;transition:all .15s;}
+.member-card:hover{border-color:var(--accent);background:rgba(79,110,247,.08);}
+.member-card.selected{border-color:var(--accent);background:rgba(79,110,247,.15);}
+.member-card .av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;}
+.member-card .mn{font-size:13px;font-weight:600;color:var(--text);text-align:left;}
+.btn-main{width:100%;padding:11px;border-radius:9px;background:var(--accent);color:#fff;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;}
+.btn-main:hover{opacity:.88;}
+.btn-main:disabled{opacity:.4;pointer-events:none;}
+.admin-link{margin-top:14px;font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline;}
+.admin-link:hover{color:var(--accent);}
+
+/* PIN pad */
+.pin-display{display:flex;gap:10px;justify-content:center;margin-bottom:24px;}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);transition:all .2s;}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent);}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:240px;margin:0 auto 16px;}
+.pin-key{padding:14px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);font-size:18px;font-weight:600;cursor:pointer;transition:all .15s;color:var(--text);}
+.pin-key:hover{background:var(--pill);border-color:var(--accent);}
+.pin-key.del{color:var(--red);}
+.pin-error{color:var(--red);font-size:13px;margin-bottom:10px;min-height:20px;}
+.pin-hint{font-size:12px;color:var(--muted);margin-bottom:18px;}
+
+/* ── HEADER ── */
+header{display:flex;align-items:center;justify-content:space-between;padding:11px 22px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;}
+.logo{display:flex;align-items:center;gap:9px;}
+.logo-mark{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;}
+.logo-text{font-size:13px;font-weight:600;}
+.logo-sub{font-size:10px;color:var(--muted);}
+.header-right{display:flex;align-items:center;gap:9px;}
+.date-badge{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;}
+#live-clock{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent);background:var(--pill);padding:3px 9px;border-radius:6px;}
+.user-badge{display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);padding:3px 10px 3px 5px;border-radius:20px;cursor:pointer;}
+.user-badge .av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;}
+.user-badge span{font-size:12px;font-weight:500;}
+.admin-btn{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:7px;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.35);color:#c084fc;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;}
+.admin-btn:hover{background:rgba(124,58,237,.25);}
+
+/* ── LAYOUT ── */
+.app{display:flex;height:calc(100vh - 52px);}
+
+/* ── SIDEBAR ── */
+.sidebar{width:205px;min-width:205px;background:var(--surface);border-right:1px solid var(--border);padding:13px 10px;display:flex;flex-direction:column;gap:3px;overflow-y:auto;}
+.sidebar-label{font-size:10px;font-weight:600;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;padding:7px 8px 3px;}
+.nav-btn{display:flex;align-items:center;gap:7px;padding:7px 9px;border-radius:7px;font-size:12px;font-weight:500;color:var(--muted);background:none;border:none;cursor:pointer;width:100%;text-align:left;transition:all .15s;}
+.nav-btn:hover{background:var(--surface2);color:var(--text);}
+.nav-btn.active{background:var(--pill);color:var(--accent);}
+.badge{margin-left:auto;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;}
+.team-member{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:7px;cursor:pointer;transition:background .15s;}
+.team-member:hover{background:var(--surface2);}
+.team-member.selected{background:var(--pill);}
+.avatar{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;}
+.member-name{font-size:11px;font-weight:500;color:var(--text);}
+.member-count{font-size:10px;color:var(--muted);}
+
+/* ── TABS ── */
+.tab-bar{display:flex;border-bottom:1px solid var(--border);background:var(--surface);padding:0 18px;}
+.tab-btn{padding:9px 15px;font-size:12px;font-weight:500;color:var(--muted);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
+.tab-btn:hover{color:var(--text);}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-content{display:none;flex:1;overflow:hidden;flex-direction:column;}
+.tab-content.active{display:flex;}
+
+/* ── STATS ── */
+.stats-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border);}
+.stat-card{background:var(--surface);padding:10px 14px;}
+.stat-label{font-size:10px;color:var(--muted);font-weight:500;margin-bottom:3px;}
+.stat-value{font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.sv-accent{color:var(--accent);}.sv-green{color:var(--green);}.sv-amber{color:var(--amber);}.sv-sky{color:var(--sky);}.sv-purple{color:#c084fc;}
+
+/* ── TOOLBAR ── */
+.toolbar{display:flex;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap;}
+.search-wrap{position:relative;flex:1;min-width:160px;max-width:260px;}
+.search-wrap input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:6px 10px 6px 28px;font-size:12px;outline:none;font-family:'Inter',sans-serif;}
+.search-wrap input:focus{border-color:var(--accent);}
+.si{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12px;}
+.filter-select{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:7px;font-size:12px;outline:none;cursor:pointer;font-family:'Inter',sans-serif;}
+.btn{padding:6px 12px;border-radius:7px;font-size:12px;font-weight:500;border:none;cursor:pointer;transition:opacity .15s;font-family:'Inter',sans-serif;white-space:nowrap;}
+.btn:hover{opacity:.85;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+.btn-ghost{background:none;color:var(--muted);border:1px solid var(--border);}
+.btn-green{background:var(--green);color:#fff;}
+.btn-sm{padding:4px 9px;font-size:11px;}
+
+/* ── TABLE ── */
+.table-wrap{flex:1;overflow-y:auto;padding:0 16px 14px;}
+table{width:100%;border-collapse:collapse;}
+thead th{text-align:left;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding:8px 8px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:2;}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s;cursor:pointer;}
+tbody tr:hover{background:var(--surface2);}
+td{padding:8px;font-size:12px;vertical-align:middle;}
+.case-id{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);font-weight:500;}
+.borrower-name{font-weight:600;color:var(--text);}
+.borrower-college{font-size:10px;color:var(--muted);margin-top:1px;}
+.ts-added{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px;}
+.stage-pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;white-space:nowrap;}
+.stage-docs{background:#1e3a5f;color:var(--sky);}
+.stage-verify{background:#2d2a1a;color:var(--amber);}
+.stage-credit{background:#1a2e3a;color:#67e8f9;}
+.stage-sanction{background:#1f2d1f;color:var(--green);}
+.stage-disburse{background:#1a2d1a;color:#4ade80;}
+.stage-hold{background:#2d1a1a;color:var(--red);}
+.disp-pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap;}
+.timer-badge{display:inline-flex;align-items:center;gap:3px;font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 7px;border-radius:6px;font-weight:600;white-space:nowrap;}
+.timer-paused{background:rgba(123,130,154,.1);color:var(--muted);border:1px solid var(--border);}
+.timer-running{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3);}
+.timer-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 1.2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.assignees{display:flex;gap:3px;flex-wrap:wrap;}
+.assignee-chip{display:flex;align-items:center;gap:3px;background:var(--pill);border-radius:20px;padding:2px 7px 2px 3px;font-size:10px;color:var(--text);}
+.assignee-chip .avatar{width:15px;height:15px;font-size:6px;}
+.priority-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:3px;}
+.p-high{background:var(--red);}.p-med{background:var(--amber);}.p-low{background:var(--green);}
+.actions-cell{display:flex;gap:4px;}
+.icon-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:3px 6px;border-radius:6px;cursor:pointer;font-size:11px;transition:all .15s;}
+.icon-btn:hover{background:var(--surface2);color:var(--text);}
+
+/* ── TASKS ── */
+.task-row{display:flex;align-items:flex-start;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border);transition:background .1s;}
+.task-row:hover{background:var(--surface2);}
+.task-check{width:17px;height:17px;border-radius:5px;border:2px solid var(--border);cursor:pointer;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:all .15s;font-size:10px;}
+.task-check.done{background:var(--green);border-color:var(--green);color:#fff;}
+.task-text{font-size:12px;color:var(--text);}
+.task-text.done{text-decoration:line-through;color:var(--muted);}
+.task-meta{font-size:10px;color:var(--muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.task-cat{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:600;background:var(--pill);color:var(--muted);}
+
+/* ── DETAIL PANEL ── */
+.detail-panel{width:330px;min-width:330px;background:var(--surface);border-left:1px solid var(--border);display:none;flex-direction:column;overflow-y:auto;}
+.detail-panel.open{display:flex;}
+.panel-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.panel-title{font-size:13px;font-weight:600;}
+.panel-body{padding:13px 14px;flex:1;}
+.detail-section{margin-bottom:14px;}
+.detail-section-title{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.6px;margin-bottom:7px;}
+.detail-row{display:flex;justify-content:space-between;margin-bottom:5px;font-size:11px;}
+.detail-key{color:var(--muted);}
+.detail-val{color:var(--text);font-weight:500;text-align:right;max-width:58%;}
+.timer-section{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:10px 13px;margin-bottom:14px;}
+.timer-display{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--text);text-align:center;letter-spacing:2px;margin-bottom:8px;}
+.timer-display.running{color:var(--green);}
+.timer-controls{display:flex;gap:6px;justify-content:center;}
+.update-entry{display:flex;gap:7px;padding:6px 0;border-bottom:1px solid var(--border);}
+.update-entry:last-child{border-bottom:none;}
+.update-text{font-size:11px;color:var(--text);flex:1;}
+.add-update-row{display:flex;gap:6px;margin-top:8px;}
+.add-update-row input{flex:1;}
+
+/* ── MODALS ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;width:560px;max-width:96vw;max-height:90vh;overflow-y:auto;}
+.modal-sm{width:420px;}
+.modal-title{font-size:14px;font-weight:600;margin-bottom:15px;padding-bottom:11px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-close{background:none;border:none;color:var(--muted);font-size:19px;cursor:pointer;}
+.field-group{margin-bottom:12px;}
+label{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:4px;}
+input[type=text],select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:13px;outline:none;font-family:'Inter',sans-serif;}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+textarea{resize:vertical;min-height:58px;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+.assignee-picker{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
+.assignee-toggle{display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;cursor:pointer;border:1.5px solid var(--border);background:var(--surface2);font-size:11px;color:var(--muted);user-select:none;transition:all .15s;}
+.assignee-toggle.active{border-color:var(--accent);color:var(--accent);background:rgba(79,110,247,.15);}
+.assignee-toggle .avatar{width:17px;height:17px;font-size:7px;}
+.disp-picker{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px;}
+.disp-option{padding:5px 12px;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;user-select:none;color:var(--muted);background:var(--surface2);}
+.disp-option:hover{border-color:var(--accent);}
+.add-custom-btn{display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:8px;border:1.5px dashed var(--border);cursor:pointer;font-size:11px;color:var(--muted);background:none;transition:all .15s;}
+.add-custom-btn:hover{border-color:var(--accent);color:var(--accent);}
+.parse-hint{font-size:11px;color:var(--muted);margin-top:4px;}
+.parse-result{margin-top:8px;padding:9px;background:var(--surface2);border-radius:7px;border:1px solid var(--border);display:none;}
+.parse-row{display:flex;align-items:center;gap:8px;margin-bottom:3px;font-size:11px;}
+.parse-key{color:var(--muted);width:80px;flex-shrink:0;}
+.parse-val{color:var(--text);font-weight:500;}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:50px;color:var(--muted);text-align:center;}
+.empty-icon{font-size:32px;opacity:.4;}
+.empty-title{font-size:14px;font-weight:500;color:var(--text);}
+#toast{position:fixed;bottom:20px;right:20px;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:500;opacity:0;transition:opacity .25s;pointer-events:none;z-index:9999;}
+#toast.show{opacity:1;}
+
+/* ── ADMIN PAGE ── */
+#admin-page{display:none;position:fixed;inset:0;background:var(--bg);z-index:800;flex-direction:column;overflow:hidden;}
+#admin-page.open{display:flex;}
+.admin-header{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:var(--surface);border-bottom:1px solid var(--border);}
+.admin-header-left{display:flex;align-items:center;gap:12px;}
+.admin-title{font-size:16px;font-weight:700;}
+.admin-sub{font-size:11px;color:var(--muted);}
+.admin-body{flex:1;overflow-y:auto;padding:20px 24px;}
+.admin-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+.admin-stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+.admin-stat-label{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px;}
+.admin-stat-val{font-size:26px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.section-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.member-report-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;}
+.member-report-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.member-report-name{font-size:14px;font-weight:700;}
+.member-stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:10px;}
+.mini-stat{background:var(--surface2);border-radius:7px;padding:8px 10px;text-align:center;}
+.mini-stat-val{font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.mini-stat-label{font-size:9px;color:var(--muted);margin-top:2px;}
+.admin-case-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:11px;}
+.admin-case-row:last-child{border-bottom:none;}
+.admin-filters{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+.admin-tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:18px;}
+.admin-tab{padding:8px 16px;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
+.admin-tab:hover{color:var(--text);}
+.admin-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.change-pin-btn{padding:6px 12px;border-radius:7px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:12px;cursor:pointer;transition:all .15s;}
+.change-pin-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+
+
+<!-- ══ API SETUP SCREEN ══ -->
+<div class="screen hidden" id="api-setup-screen">
+  <div class="card" style="width:480px;">
+    <div class="k-logo">⚙️</div>
+    <div class="screen-title">Connect to Google Sheets</div>
+    <div class="screen-sub">One-time setup — paste your Apps Script Web App URL below</div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:14px;text-align:left;margin-bottom:18px;font-size:12px;line-height:1.7;color:var(--muted);">
+      <div style="color:var(--text);font-weight:600;margin-bottom:6px;">📋 Steps to get your URL:</div>
+      <div>1. Open your Google Sheet → <strong style="color:var(--accent)">Extensions → Apps Script</strong></div>
+      <div>2. Paste the script code → click <strong style="color:var(--accent)">Save</strong></div>
+      <div>3. Click <strong style="color:var(--accent)">Deploy → New deployment</strong></div>
+      <div>4. Type: <strong style="color:var(--accent)">Web app</strong> → Execute as: <strong style="color:var(--accent)">Me</strong> → Who has access: <strong style="color:var(--accent)">Anyone</strong></div>
+      <div>5. Click <strong style="color:var(--accent)">Deploy</strong> → copy the <strong style="color:var(--accent)">Web App URL</strong></div>
+    </div>
+    <input type="text" id="api-url-input" placeholder="https://script.google.com/macros/s/…/exec" style="margin-bottom:12px;font-size:12px;">
+    <button class="btn-main" onclick="saveApiUrl()">Connect & Continue →</button>
+    <div style="margin-top:10px;font-size:11px;color:var(--muted);">This URL is saved locally on this device only.</div>
+  </div>
+</div>
+
+<!-- Loading bar -->
+<div id="loading-bar" style="display:none;position:fixed;top:0;left:0;right:0;height:3px;z-index:9999;background:linear-gradient(90deg,var(--accent),var(--accent2));animation:loadpulse 1.2s ease-in-out infinite;"></div>
+<style>@keyframes loadpulse{0%{opacity:1}50%{opacity:.4}100%{opacity:1}}</style>
+
+<!-- ══ LOGIN SCREEN ══ -->
+<div class="screen" id="login-screen">
+  <div class="card">
+    <div class="k-logo">K</div>
+    <div class="screen-title">Kuhoo Ops Dashboard</div>
+    <div class="screen-sub">Select your name to continue</div>
+    <div class="member-grid" id="login-grid"></div>
+    <button class="btn-main" id="login-btn" disabled onclick="doLogin()">Continue →</button>
+    <div class="admin-link" onclick="goToAdminEntry()">🔒 Admin View</div>
+  </div>
+</div>
+
+<!-- ══ PIN SCREEN ══ -->
+<div class="screen hidden" id="pin-screen">
+  <div class="card">
+    <div class="k-logo">🔒</div>
+    <div class="screen-title" id="pin-screen-title">Admin Access</div>
+    <div class="pin-hint" id="pin-hint">Enter your 4-digit PIN</div>
+    <div class="pin-error" id="pin-error"></div>
+    <div class="pin-display" id="pin-display">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div class="pin-pad">
+      <div class="pin-key" onclick="pinPress('1')">1</div>
+      <div class="pin-key" onclick="pinPress('2')">2</div>
+      <div class="pin-key" onclick="pinPress('3')">3</div>
+      <div class="pin-key" onclick="pinPress('4')">4</div>
+      <div class="pin-key" onclick="pinPress('5')">5</div>
+      <div class="pin-key" onclick="pinPress('6')">6</div>
+      <div class="pin-key" onclick="pinPress('7')">7</div>
+      <div class="pin-key" onclick="pinPress('8')">8</div>
+      <div class="pin-key" onclick="pinPress('9')">9</div>
+      <div class="pin-key" onclick="pinClear()">C</div>
+      <div class="pin-key" onclick="pinPress('0')">0</div>
+      <div class="pin-key del" onclick="pinBack()">⌫</div>
+    </div>
+    <button class="btn-main" onclick="cancelPin()" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);">← Back</button>
+  </div>
+</div>
+
+<!-- ══ HEADER ══ -->
+<header id="main-header" style="display:none;">
+  <div class="logo">
+    <div class="logo-mark">K</div>
+    <div>
+      <div class="logo-text">Kuhoo Finance — Ops</div>
+      <div class="logo-sub">Operations Dashboard</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="date-badge" id="date-badge"></span>
+    <span id="live-clock"></span>
+    <div class="admin-btn" onclick="goToAdminEntry()">🔒 Admin</div>
+    <div class="user-badge" onclick="switchUser()" title="Switch user">
+      <div class="av" id="header-av" style="background:#7c3aed">G</div>
+      <span id="header-name">Ganesh</span>
+      <span style="font-size:10px;color:var(--muted);">↕</span>
+    </div>
+  </div>
+</header>
+
+<!-- ══ MAIN APP ══ -->
+<div class="app" id="main-app" style="display:none;">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-label">Cases</div>
+    <button class="nav-btn active" onclick="setView('all',this)">
+      <span>📋</span> All Cases <span class="badge" id="badge-all">0</span>
+    </button>
+    <button class="nav-btn" onclick="setView('urgent',this)">
+      <span>🔴</span> High Priority <span class="badge" id="badge-urgent">0</span>
+    </button>
+    <button class="nav-btn" onclick="setView('disburse',this)">
+      <span>💸</span> To Disburse <span class="badge" id="badge-disburse">0</span>
+    </button>
+    <button class="nav-btn" onclick="setView('pendency',this)">
+      <span>⚠️</span> Pendency <span class="badge" id="badge-pendency">0</span>
+    </button>
+    <div class="sidebar-label" style="margin-top:6px;">My Team (me)</div>
+    <div id="team-list"></div>
+  </aside>
+
+  <!-- CONTENT -->
+  <main style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('cases',this)">📋 My Cases</button>
+      <button class="tab-btn" onclick="switchTab('tasks',this)">✅ My Tasks <span class="badge" id="badge-tasks" style="background:var(--green);">0</span></button>
+    </div>
+
+    <!-- CASES TAB -->
+    <div class="tab-content active" id="tab-cases">
+      <div class="stats-bar">
+        <div class="stat-card"><div class="stat-label">My Cases</div><div class="stat-value sv-accent" id="stat-total">0</div></div>
+        <div class="stat-card"><div class="stat-label">In Progress</div><div class="stat-value sv-sky" id="stat-inprogress">0</div></div>
+        <div class="stat-card"><div class="stat-label">Moved to Disbursal</div><div class="stat-value sv-green" id="stat-disburse">0</div></div>
+        <div class="stat-card"><div class="stat-label">Pendency Raised</div><div class="stat-value sv-amber" id="stat-pendency">0</div></div>
+        <div class="stat-card"><div class="stat-label">Hold / Review</div><div class="stat-value sv-purple" id="stat-hold">0</div></div>
+      </div>
+      <div class="toolbar">
+        <div class="search-wrap">
+          <span class="si">🔍</span>
+          <input type="text" id="search-input" placeholder="Search case, borrower…" oninput="renderTable()">
+        </div>
+        <select class="filter-select" id="stage-filter" onchange="renderTable()">
+          <option value="">All Stages</option>
+          <option value="docs">Docs Pending</option>
+          <option value="verify">Verification</option>
+          <option value="credit">Credit Review</option>
+          <option value="sanction">Sanctioned</option>
+          <option value="disburse">Ready to Disburse</option>
+          <option value="hold">On Hold</option>
+        </select>
+        <select class="filter-select" id="disp-filter" onchange="renderTable()">
+          <option value="">All Dispositions</option>
+        </select>
+        <div style="flex:1"></div>
+        <button class="btn btn-ghost" onclick="openPasteModal()">📋 Paste Chat</button>
+        <button class="btn btn-primary" onclick="openAddModal()">＋ Add Case</button>
+      </div>
+      <div style="display:flex;flex:1;overflow:hidden;">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Case</th><th>Stage</th><th>Priority</th><th>Disposition</th>
+              <th>Assigned To</th><th>Time Spent</th><th>Latest Update</th><th></th>
+            </tr></thead>
+            <tbody id="cases-tbody"></tbody>
+          </table>
+          <div id="empty-state" class="empty" style="display:none;">
+            <div class="empty-icon">📂</div>
+            <div class="empty-title">No cases yet</div>
+            <div style="font-size:12px;">Add a case or paste from Google Chat.</div>
+          </div>
+        </div>
+        <!-- DETAIL PANEL -->
+        <div class="detail-panel" id="detail-panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title" id="panel-case-id">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px;" id="panel-borrower">—</div>
+            </div>
+            <button class="icon-btn" onclick="closePanel()">✕</button>
+          </div>
+          <div class="panel-body">
+            <div class="timer-section">
+              <div class="detail-section-title" style="text-align:center;margin-bottom:5px;">⏱ Time on Case</div>
+              <div class="timer-display" id="panel-timer">00:00:00</div>
+              <div class="timer-controls">
+                <button class="btn btn-green btn-sm" id="timer-start-btn" onclick="startTimer()">▶ Start</button>
+                <button class="btn btn-secondary btn-sm" id="timer-pause-btn" onclick="pauseTimer()" style="display:none;">⏸ Pause</button>
+                <button class="btn btn-secondary btn-sm" onclick="resetTimer()">↺ Reset</button>
+              </div>
+            </div>
+            <div class="detail-section">
+              <div class="detail-section-title">Case Info</div>
+              <div class="detail-row"><span class="detail-key">Stage</span><span class="detail-val" id="panel-stage">—</span></div>
+              <div class="detail-row"><span class="detail-key">Priority</span><span class="detail-val" id="panel-priority">—</span></div>
+              <div class="detail-row"><span class="detail-key">College</span><span class="detail-val" id="panel-college">—</span></div>
+              <div class="detail-row"><span class="detail-key">Amount</span><span class="detail-val" id="panel-amount">—</span></div>
+              <div class="detail-row"><span class="detail-key">Added</span><span class="detail-val" id="panel-added">—</span></div>
+              <div class="detail-row"><span class="detail-key">Time Spent</span><span class="detail-val" id="panel-total-time">—</span></div>
+            </div>
+            <div class="detail-section">
+              <div class="detail-section-title">Assigned To</div>
+              <div id="panel-assignees" class="assignees"></div>
+            </div>
+            <div class="detail-section">
+              <div class="detail-section-title">Disposition</div>
+              <div id="panel-disp-display" style="margin-bottom:6px;"></div>
+              <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="openDispModal()">Set / Change Disposition</button>
+            </div>
+            <div class="detail-section">
+              <div class="detail-section-title">Activity Log</div>
+              <div id="panel-updates" style="max-height:190px;overflow-y:auto;"></div>
+              <div class="add-update-row">
+                <input type="text" id="new-update-input" placeholder="Add a note…" onkeydown="if(event.key==='Enter')addUpdateFromPanel()">
+                <button class="btn btn-primary btn-sm" onclick="addUpdateFromPanel()">Post</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TASKS TAB -->
+    <div class="tab-content" id="tab-tasks">
+      <div class="toolbar">
+        <select class="filter-select" id="task-cat-filter" onchange="renderTasks()"><option value="">All Categories</option></select>
+        <select class="filter-select" id="task-status-filter" onchange="renderTasks()">
+          <option value="">All Status</option><option value="open">Open</option><option value="done">Done</option>
+        </select>
+        <div style="flex:1"></div>
+        <button class="btn btn-primary" onclick="openTaskModal()">＋ Add Task</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;" id="tasks-list"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ══ ADMIN PAGE ══ -->
+<div id="admin-page">
+  <div class="admin-header">
+    <div class="admin-header-left">
+      <div class="k-logo" style="width:36px;height:36px;font-size:15px;border-radius:9px;margin:0;">K</div>
+      <div>
+        <div class="admin-title">Admin Overview</div>
+        <div class="admin-sub">Full team activity — all time</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="change-pin-btn" onclick="changePinFlow()">🔑 Change PIN</button>
+      <button class="btn btn-secondary" onclick="closeAdmin()">← Back to Dashboard</button>
+    </div>
+  </div>
+  <div class="admin-body">
+    <!-- TOP STATS -->
+    <div class="admin-grid" id="admin-top-stats"></div>
+    <!-- TABS -->
+    <div class="admin-tab-bar">
+      <div class="admin-tab active" onclick="switchAdminTab('team',this)">👥 Per Member</div>
+      <div class="admin-tab" onclick="switchAdminTab('cases',this)">📋 All Cases</div>
+      <div class="admin-tab" onclick="switchAdminTab('tasks',this)">✅ All Tasks</div>
+    </div>
+    <div id="admin-tab-team" class="admin-tab-content"></div>
+    <div id="admin-tab-cases" class="admin-tab-content" style="display:none;"></div>
+    <div id="admin-tab-tasks" class="admin-tab-content" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- ══ MODALS ══ -->
+<!-- ADD/EDIT CASE -->
+<div class="modal-bg" id="add-modal">
+  <div class="modal">
+    <div class="modal-title"><span id="add-modal-title">Add New Case</span><button class="modal-close" onclick="closeModal('add-modal')">×</button></div>
+    <div class="field-row">
+      <div class="field-group"><label>Case ID (LOS)</label><input type="text" id="f-caseid" placeholder="e.g. KH-2024-00123"></div>
+      <div class="field-group"><label>Borrower Name</label><input type="text" id="f-borrower" placeholder="Full name"></div>
+    </div>
+    <div class="field-row">
+      <div class="field-group"><label>College / Institute</label><input type="text" id="f-college" placeholder="e.g. IIT Bombay"></div>
+      <div class="field-group"><label>Loan Amount (₹)</label><input type="text" id="f-amount" placeholder="e.g. 12,00,000"></div>
+    </div>
+    <div class="field-row">
+      <div class="field-group"><label>Stage</label>
+        <select id="f-stage"><option value="docs">Docs Pending</option><option value="verify">Verification</option><option value="credit">Credit Review</option><option value="sanction">Sanctioned</option><option value="disburse">Ready to Disburse</option><option value="hold">On Hold</option></select>
+      </div>
+      <div class="field-group"><label>Priority</label>
+        <select id="f-priority"><option value="high">High</option><option value="med" selected>Medium</option><option value="low">Low</option></select>
+      </div>
+    </div>
+    <div class="field-group"><label>Assign To</label><div class="assignee-picker" id="add-assignee-picker"></div></div>
+    <div class="field-group"><label>Initial Note (optional)</label><textarea id="f-note" placeholder="e.g. Docs received, pushing to credit…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('add-modal')">Cancel</button>
+      <button class="btn btn-primary" id="add-submit-btn" onclick="submitAddCase()">Add Case</button>
+    </div>
+  </div>
+</div>
+
+<!-- DISPOSITION -->
+<div class="modal-bg" id="disp-modal">
+  <div class="modal modal-sm">
+    <div class="modal-title">Set Disposition<button class="modal-close" onclick="closeModal('disp-modal')">×</button></div>
+    <div class="field-group">
+      <label>What was the outcome?</label>
+      <div class="disp-picker" id="disp-picker"></div>
+      <button class="add-custom-btn" style="margin-top:8px;" onclick="promptCustomDisp()">＋ Add custom disposition</button>
+    </div>
+    <div class="field-group" style="margin-top:10px;"><label>Note (required)</label><textarea id="disp-note" rows="3" placeholder="Describe what was done…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('disp-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitDisposition()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- PASTE -->
+<div class="modal-bg" id="paste-modal">
+  <div class="modal">
+    <div class="modal-title">Paste from Google Chat<button class="modal-close" onclick="closeModal('paste-modal')">×</button></div>
+    <div class="field-group">
+      <label>Paste the sales team message</label>
+      <textarea id="paste-input" rows="4" placeholder="e.g. KH-2024-00456, Rahul Sharma (IIT Delhi), ₹8L — docs submitted, push to credit. Urgent!" oninput="parseChat()"></textarea>
+      <div class="parse-hint">Case ID, amount, stage & priority detected as you type.</div>
+    </div>
+    <div id="parse-result" class="parse-result">
+      <div class="parse-row"><span class="parse-key">Case ID</span><span class="parse-val" id="pr-caseid">—</span></div>
+      <div class="parse-row"><span class="parse-key">Borrower</span><span class="parse-val" id="pr-borrower">—</span></div>
+      <div class="parse-row"><span class="parse-key">College</span><span class="parse-val" id="pr-college">—</span></div>
+      <div class="parse-row"><span class="parse-key">Amount</span><span class="parse-val" id="pr-amount">—</span></div>
+      <div class="parse-row"><span class="parse-key">Stage</span><span class="parse-val" id="pr-stage">—</span></div>
+      <div class="parse-row"><span class="parse-key">Priority</span><span class="parse-val" id="pr-priority">—</span></div>
+    </div>
+    <div id="paste-assign-group" style="display:none;margin-top:10px;"><label>Assign To</label><div class="assignee-picker" id="paste-assignee-picker"></div></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('paste-modal')">Cancel</button>
+      <button class="btn btn-primary" id="paste-confirm-btn" onclick="confirmPaste()" disabled>Add to Dashboard</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD TASK -->
+<div class="modal-bg" id="task-modal">
+  <div class="modal modal-sm">
+    <div class="modal-title"><span id="task-modal-title">Add Task</span><button class="modal-close" onclick="closeModal('task-modal')">×</button></div>
+    <div class="field-group"><label>Task Description</label><textarea id="t-desc" rows="3" placeholder="e.g. Follow up with credit team on case KH-xxx…"></textarea></div>
+    <div class="field-row">
+      <div class="field-group"><label>Category</label><select id="t-cat"></select></div>
+      <div class="field-group"><label>Priority</label><select id="t-priority"><option value="high">High</option><option value="med" selected>Medium</option><option value="low">Low</option></select></div>
+    </div>
+    <div class="field-group"><label>Assign To</label><div class="assignee-picker" id="task-assignee-picker"></div></div>
+    <div class="field-group"><button class="add-custom-btn" onclick="promptCustomTaskCat()">＋ New category</button></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('task-modal')">Cancel</button>
+      <button class="btn btn-primary" id="task-submit-btn" onclick="submitTask()">Add Task</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════
+const TEAM = [
+  {id:'ganesh',    name:'Ganesh',     color:'#7c3aed'},
+  {id:'komal',     name:'Komal',      color:'#0891b2'},
+  {id:'dhanashree',name:'Dhanashree', color:'#059669'},
+  {id:'priyanka',  name:'Priyanka',   color:'#d97706'},
+  {id:'namrata',   name:'Namrata',    color:'#db2777'},
+];
+const STAGES = {
+  docs:    {label:'Docs Pending',      cls:'stage-docs'},
+  verify:  {label:'Verification',      cls:'stage-verify'},
+  credit:  {label:'Credit Review',     cls:'stage-credit'},
+  sanction:{label:'Sanctioned',        cls:'stage-sanction'},
+  disburse:{label:'Ready to Disburse', cls:'stage-disburse'},
+  hold:    {label:'On Hold',           cls:'stage-hold'},
+};
+const PRIORITIES = {high:{label:'High',cls:'p-high'},med:{label:'Med',cls:'p-med'},low:{label:'Low',cls:'p-low'}};
+const DEFAULT_DISPS = [
+  {key:'disbursal',label:'Moved to Disbursal',color:'#14532d',textColor:'#86efac',emoji:'💸'},
+  {key:'pendency', label:'Pendency Raised',   color:'#431407',textColor:'#fdba74',emoji:'⚠️'},
+  {key:'hold',     label:'On Hold',           color:'#292524',textColor:'#a8a29e',emoji:'⏸'},
+  {key:'review',   label:'Raised for Review', color:'#1e1b4b',textColor:'#a5b4fc',emoji:'🔍'},
+];
+const DEFAULT_CATS = ['Follow-up','Documentation','Verification','Internal Coordination','Escalation','Other'];
+
+// ═══════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════
+let allCases = [];   // ALL cases across all users
+let allTasks = [];   // ALL tasks across all users
+let customDisps = [];
+let customCats  = [];
+let adminPin    = null; // stored hash
+
+let currentUser    = null;
+let currentView    = 'all';
+let selectedCaseId = null;
+let parsedFromChat = null;
+let editingId      = null;
+let editingTaskId  = null;
+let selectedDisp   = null;
+
+// PIN state
+let pinBuffer   = '';
+let pinMode     = ''; // 'verify' | 'set' | 'confirm' | 'change-old' | 'change-new' | 'change-confirm'
+let pinTemp     = ''; // for confirm step
+
+// Timer
+let timerInterval = null;
+let timerRunning  = false;
+let timerStart    = null;
+let timerAccum    = 0;
+
+// ═══════════════════════════════════════
+//  STORAGE — Google Sheets via Apps Script
+// ═══════════════════════════════════════
+// ⬇ Paste your Web App URL here after deploying the Apps Script
+let API_URL = localStorage.getItem('kuhoo_api_url') || '';
+
+function api(params) {
+  if (!API_URL) throw new Error('NO_API');
+  const url = API_URL + '?' + Object.entries(params).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&');
+  return fetch(url).then(r=>r.json()).then(r=>{ if(!r.ok) throw new Error(r.error); return r.data; });
+}
+function apiPost(body) {
+  if (!API_URL) throw new Error('NO_API');
+  return fetch(API_URL, {method:'POST', body:JSON.stringify(body)}).then(r=>r.json()).then(r=>{ if(!r.ok) throw new Error(r.error); return r.data; });
+}
+
+async function loadAll() {
+  if (!API_URL) { showApiSetup(); return; }
+  try {
+    setLoading(true);
+    const [cases, tasks, config] = await Promise.all([
+      api({action:'getCases'}),
+      api({action:'getTasks'}),
+      api({action:'getConfig'}),
+    ]);
+    allCases      = cases  || [];
+    allTasks      = tasks  || [];
+    adminPin      = config.adminPin      || null;
+    customDisps   = config.customDisps   || [];
+    customCats    = config.customCats    || [];
+    setLoading(false);
+  } catch(e) {
+    setLoading(false);
+    if (e.message === 'NO_API') { showApiSetup(); return; }
+    toast('Error loading data: ' + e.message, 'red');
+  }
+}
+
+async function saveCases()  { /* cases saved individually via upsertCase */ }
+async function saveTasks()  { /* tasks saved individually via upsertTask */ }
+async function saveDisps()  { await apiPost({action:'setConfig', key:'customDisps',  value:customDisps}); }
+async function saveCats()   { await apiPost({action:'setConfig', key:'customCats',   value:customCats}); }
+async function savePin(h)   { await apiPost({action:'setConfig', key:'adminPin',     value:h}); }
+
+async function saveCase(c) {
+  try { await apiPost({action:'upsertCase', ...c}); }
+  catch(e) { toast('Save failed: '+e.message,'red'); }
+}
+async function saveTask(t) {
+  try { await apiPost({action:'upsertTask', ...t}); }
+  catch(e) { toast('Save failed: '+e.message,'red'); }
+}
+async function postUpdate(u) {
+  try { await apiPost({action:'addUpdate', ...u}); }
+  catch(e) { toast('Note not saved: '+e.message,'red'); }
+}
+async function eraseCase(id) {
+  try { await apiPost({action:'deleteCase', id}); }
+  catch(e) { toast('Delete failed','red'); }
+}
+async function eraseTask(id) {
+  try { await apiPost({action:'deleteTask', id}); }
+  catch(e) { toast('Delete failed','red'); }
+}
+
+function setLoading(on) {
+  const el = document.getElementById('loading-bar');
+  if (el) el.style.display = on ? 'block' : 'none';
+}
+
+function showApiSetup() {
+  document.getElementById('api-setup-screen').classList.remove('hidden');
+  document.getElementById('login-screen').classList.add('hidden');
+}
+function saveApiUrl() {
+  const url = document.getElementById('api-url-input').value.trim();
+  if (!url || !url.startsWith('https://')) { toast('Paste a valid https:// URL','red'); return; }
+  API_URL = url;
+  localStorage.setItem('kuhoo_api_url', url);
+  document.getElementById('api-setup-screen').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
+  loadAll();
+}
+
+// ═══════════════════════════════════════
+//  USER DATA VIEWS (scoped to currentUser)
+// ═══════════════════════════════════════
+function myCases() { return allCases.filter(c=>c.addedBy===currentUser||c.assignees.includes(currentUser)); }
+function myTasks() { return allTasks.filter(t=>t.addedBy===currentUser||t.assignees.includes(currentUser)); }
+
+// ═══════════════════════════════════════
+//  CLOCK
+// ═══════════════════════════════════════
+function updateClock(){
+  const n=new Date();
+  const c=document.getElementById('live-clock'); if(c) c.textContent=n.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const d=document.getElementById('date-badge'); if(d) d.textContent=n.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+}
+setInterval(updateClock,1000); updateClock();
+
+// ═══════════════════════════════════════
+//  LOGIN
+// ═══════════════════════════════════════
+function renderLogin(){
+  document.getElementById('login-grid').innerHTML=TEAM.map(m=>`
+    <div class="member-card" data-id="${m.id}" onclick="selectMember(this,'${m.id}')">
+      <div class="av" style="background:${m.color}">${initials(m.name)}</div>
+      <div><div class="mn">${m.name}</div></div>
+    </div>`).join('');
+}
+function selectMember(el,id){
+  document.querySelectorAll('.member-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected'); currentUser=id;
+  document.getElementById('login-btn').disabled=false;
+}
+function doLogin(){
+  if(!currentUser)return;
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('main-header').style.display='flex';
+  document.getElementById('main-app').style.display='flex';
+  const m=TEAM.find(t=>t.id===currentUser);
+  document.getElementById('header-av').style.background=m.color;
+  document.getElementById('header-av').textContent=initials(m.name);
+  document.getElementById('header-name').textContent=m.name;
+  rebuildFilters(); renderAll(); renderTasks();
+}
+function switchUser(){
+  if(timerRunning)pauseTimer(); closePanel();
+  currentUser=null;
+  document.querySelectorAll('.member-card').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('login-btn').disabled=true;
+  document.getElementById('main-header').style.display='none';
+  document.getElementById('main-app').style.display='none';
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('admin-page').classList.remove('open');
+}
+
+// ═══════════════════════════════════════
+//  PIN SYSTEM
+// ═══════════════════════════════════════
+function simpleHash(s){ let h=0; for(let i=0;i<s.length;i++){h=(Math.imul(31,h)+s.charCodeAt(i))|0;} return h.toString(36); }
+
+function goToAdminEntry(){
+  if(adminPin===null){
+    // First time — set a new PIN
+    showPinScreen('set','Set Admin PIN','Choose a 4-digit PIN to protect the admin view');
+  } else {
+    showPinScreen('verify','Admin Access','Enter your 4-digit PIN');
+  }
+}
+
+function showPinScreen(mode, title, hint){
+  pinMode=mode; pinBuffer='';
+  document.getElementById('pin-screen-title').textContent=title;
+  document.getElementById('pin-hint').textContent=hint;
+  document.getElementById('pin-error').textContent='';
+  updatePinDisplay();
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('pin-screen').classList.remove('hidden');
+}
+
+function cancelPin(){
+  document.getElementById('pin-screen').classList.add('hidden');
+  if(currentUser){
+    document.getElementById('login-screen').classList.add('hidden');
+  } else {
+    document.getElementById('login-screen').classList.remove('hidden');
+  }
+  pinBuffer=''; pinMode=''; pinTemp='';
+}
+
+function pinPress(d){
+  if(pinBuffer.length>=4)return;
+  pinBuffer+=d; updatePinDisplay();
+  if(pinBuffer.length===4) setTimeout(pinSubmit,200);
+}
+function pinBack(){ pinBuffer=pinBuffer.slice(0,-1); updatePinDisplay(); }
+function pinClear(){ pinBuffer=''; updatePinDisplay(); }
+function updatePinDisplay(){
+  for(let i=0;i<4;i++){
+    const el=document.getElementById('pd'+i);
+    if(el) el.classList.toggle('filled',i<pinBuffer.length);
+  }
+}
+
+function pinSubmit(){
+  if(pinMode==='verify'){
+    if(simpleHash(pinBuffer)===adminPin){
+      document.getElementById('pin-screen').classList.add('hidden');
+      openAdmin();
+    } else {
+      document.getElementById('pin-error').textContent='Incorrect PIN. Try again.';
+      pinBuffer=''; updatePinDisplay();
+    }
+  } else if(pinMode==='set'){
+    pinTemp=pinBuffer; pinBuffer='';
+    showPinScreen('confirm','Confirm PIN','Re-enter the same 4-digit PIN to confirm');
+  } else if(pinMode==='confirm'){
+    if(pinBuffer===pinTemp){
+      adminPin=simpleHash(pinBuffer); await savePin(adminPin);
+      document.getElementById('pin-screen').classList.add('hidden');
+      openAdmin();
+      toast('Admin PIN set ✓');
+    } else {
+      document.getElementById('pin-error').textContent='PINs do not match. Try again.';
+      pinBuffer=''; pinTemp='';
+      setTimeout(()=>showPinScreen('set','Set Admin PIN','Choose a 4-digit PIN to protect the admin view'),800);
+    }
+  } else if(pinMode==='change-old'){
+    if(simpleHash(pinBuffer)===adminPin){
+      pinBuffer=''; showPinScreen('change-new','New PIN','Enter your new 4-digit PIN');
+    } else {
+      document.getElementById('pin-error').textContent='Incorrect current PIN.';
+      pinBuffer=''; updatePinDisplay();
+    }
+  } else if(pinMode==='change-new'){
+    pinTemp=pinBuffer; pinBuffer='';
+    showPinScreen('change-confirm','Confirm New PIN','Re-enter the new PIN to confirm');
+  } else if(pinMode==='change-confirm'){
+    if(pinBuffer===pinTemp){
+      adminPin=simpleHash(pinBuffer); await savePin(adminPin);
+      document.getElementById('pin-screen').classList.add('hidden');
+      if(currentUser){ document.getElementById('main-header').style.display='flex'; document.getElementById('main-app').style.display='flex'; }
+      openAdmin();
+      toast('PIN changed ✓');
+    } else {
+      document.getElementById('pin-error').textContent='PINs do not match. Try again.';
+      pinBuffer=''; pinTemp='';
+      setTimeout(()=>showPinScreen('change-new','New PIN','Enter your new 4-digit PIN'),800);
+    }
+  }
+}
+
+function changePinFlow(){
+  showPinScreen('change-old','Change PIN','Enter your current PIN first');
+  document.getElementById('admin-page').classList.remove('open');
+}
+
+// ═══════════════════════════════════════
+//  ADMIN PAGE
+// ═══════════════════════════════════════
+function openAdmin(){
+  document.getElementById('admin-page').classList.add('open');
+  renderAdmin();
+}
+function closeAdmin(){
+  document.getElementById('admin-page').classList.remove('open');
+}
+
+function switchAdminTab(name,el){
+  document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  ['team','cases','tasks'].forEach(n=>{ document.getElementById('admin-tab-'+n).style.display=n===name?'block':'none'; });
+}
+
+function renderAdmin(){
+  renderAdminTopStats();
+  renderAdminTeamTab();
+  renderAdminCasesTab();
+  renderAdminTasksTab();
+}
+
+function renderAdminTopStats(){
+  const cases=allCases, tasks=allTasks;
+  const totalTime=cases.reduce((s,c)=>s+(c.timeSpentMs||0),0);
+  document.getElementById('admin-top-stats').innerHTML=`
+    <div class="admin-stat"><div class="admin-stat-label">Total Cases</div><div class="admin-stat-val sv-accent">${cases.length}</div></div>
+    <div class="admin-stat"><div class="admin-stat-label">Moved to Disbursal</div><div class="admin-stat-val sv-green">${cases.filter(c=>c.disposition==='disbursal').length}</div></div>
+    <div class="admin-stat"><div class="admin-stat-label">Pendency Raised</div><div class="admin-stat-val sv-amber">${cases.filter(c=>c.disposition==='pendency').length}</div></div>
+    <div class="admin-stat"><div class="admin-stat-label">Tasks Done</div><div class="admin-stat-val sv-sky">${tasks.filter(t=>t.status==='done').length} / ${tasks.length}</div></div>
+    <div class="admin-stat"><div class="admin-stat-label">Total Time Logged</div><div class="admin-stat-val sv-purple">${fmtMs(totalTime)}</div></div>
+    <div class="admin-stat"><div class="admin-stat-label">On Hold / Review</div><div class="admin-stat-val sv-purple">${cases.filter(c=>['hold','review'].includes(c.disposition)).length}</div></div>
+    <div class="admin-stat"><div class="admin-stat-label">Team Members</div><div class="admin-stat-val" style="color:var(--text)">${TEAM.length}</div></div>
+    <div class="admin-stat"><div class="admin-stat-label">Open Tasks</div><div class="admin-stat-val sv-amber">${tasks.filter(t=>t.status==='open').length}</div></div>
+  `;
+}
+
+function renderAdminTeamTab(){
+  const el=document.getElementById('admin-tab-team');
+  el.innerHTML=TEAM.map(m=>{
+    const mCases=allCases.filter(c=>c.addedBy===m.id||c.assignees.includes(m.id));
+    const mTasks=allTasks.filter(t=>t.addedBy===m.id||t.assignees.includes(m.id));
+    const totalMs=mCases.reduce((s,c)=>s+(c.timeSpentMs||0),0);
+    const recentCases=mCases.slice(0,5);
+    return `<div class="member-report-card">
+      <div class="member-report-header">
+        <div class="av" style="background:${m.color};width:34px;height:34px;font-size:13px;">${initials(m.name)}</div>
+        <div>
+          <div class="member-report-name">${m.name}</div>
+          <div style="font-size:11px;color:var(--muted);">Ops Team</div>
+        </div>
+      </div>
+      <div class="member-stats-row">
+        <div class="mini-stat"><div class="mini-stat-val sv-accent">${mCases.length}</div><div class="mini-stat-label">Cases</div></div>
+        <div class="mini-stat"><div class="mini-stat-val sv-green">${mCases.filter(c=>c.disposition==='disbursal').length}</div><div class="mini-stat-label">Disbursed</div></div>
+        <div class="mini-stat"><div class="mini-stat-val sv-amber">${mCases.filter(c=>c.disposition==='pendency').length}</div><div class="mini-stat-label">Pendency</div></div>
+        <div class="mini-stat"><div class="mini-stat-val sv-sky">${mTasks.filter(t=>t.status==='done').length}/${mTasks.length}</div><div class="mini-stat-label">Tasks</div></div>
+        <div class="mini-stat"><div class="mini-stat-val sv-purple">${fmtMs(totalMs)}</div><div class="mini-stat-label">Time Logged</div></div>
+      </div>
+      ${recentCases.length?`<div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">Recent Cases</div>
+      ${recentCases.map(c=>{
+        const d=c.disposition?getDisp(c.disposition):null;
+        return `<div class="admin-case-row">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);">${c.caseId}</span>
+          <span style="flex:1;color:var(--text);">${c.borrower}</span>
+          <span class="stage-pill ${STAGES[c.stage]?.cls||''}" style="font-size:9px;">${STAGES[c.stage]?.label||''}</span>
+          ${d?`<span class="disp-pill" style="background:${d.color};color:${d.textColor};font-size:9px;">${d.emoji} ${d.label}</span>`:''}
+          <span style="color:var(--muted);">${fmtMs(c.timeSpentMs||0)}</span>
+          <span style="color:var(--muted);">${fmtTs(c.createdAt)}</span>
+        </div>`;
+      }).join('')}`:'<div style="font-size:12px;color:var(--muted);padding:6px 0;">No cases yet.</div>'}
+    </div>`;
+  }).join('');
+}
+
+function renderAdminCasesTab(){
+  const el=document.getElementById('admin-tab-cases');
+  if(!allCases.length){ el.innerHTML='<div class="empty"><div class="empty-icon">📂</div><div class="empty-title">No cases yet</div></div>'; return; }
+  el.innerHTML=`
+    <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;">
+      <thead><tr style="border-bottom:1px solid var(--border);">
+        <th style="text-align:left;padding:8px;font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Case</th>
+        <th style="text-align:left;padding:8px;font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Added By</th>
+        <th style="text-align:left;padding:8px;font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Assigned</th>
+        <th style="text-align:left;padding:8px;font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Stage</th>
+        <th style="text-align:left;padding:8px;font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Disposition</th>
+        <th style="text-align:left;padding:8px;font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Time</th>
+        <th style="text-align:left;padding:8px;font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Added At</th>
+      </tr></thead>
+      <tbody>${[...allCases].sort((a,b)=>b.createdAt-a.createdAt).map(c=>{
+        const addedBy=TEAM.find(t=>t.id===c.addedBy);
+        const d=c.disposition?getDisp(c.disposition):null;
+        const assigned=c.assignees.map(id=>{const m=TEAM.find(t=>t.id===id);return m?`<span style="color:${m.color};font-size:10px;font-weight:600;">${m.name}</span>`:''}).join(', ');
+        return `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:8px;"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);">${c.caseId}</div><div style="font-size:12px;font-weight:600;">${c.borrower}</div><div style="font-size:10px;color:var(--muted);">${c.college||''}</div></td>
+          <td style="padding:8px;"><span style="color:${addedBy?.color||'var(--muted)'};font-size:11px;font-weight:600;">${addedBy?.name||'?'}</span></td>
+          <td style="padding:8px;">${assigned||'<span style="color:var(--muted);font-size:10px;">—</span>'}</td>
+          <td style="padding:8px;"><span class="stage-pill ${STAGES[c.stage]?.cls||''}">${STAGES[c.stage]?.label||''}</span></td>
+          <td style="padding:8px;">${d?`<span class="disp-pill" style="background:${d.color};color:${d.textColor};">${d.emoji} ${d.label}</span>`:'<span style="color:var(--muted);font-size:10px;">—</span>'}</td>
+          <td style="padding:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);">${fmtMs(c.timeSpentMs||0)}</td>
+          <td style="padding:8px;font-size:10px;color:var(--muted);">${fmtTs(c.createdAt)}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+}
+
+function renderAdminTasksTab(){
+  const el=document.getElementById('admin-tab-tasks');
+  if(!allTasks.length){ el.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">No tasks yet</div></div>'; return; }
+  el.innerHTML=[...allTasks].sort((a,b)=>b.createdAt-a.createdAt).map(t=>{
+    const addedBy=TEAM.find(m=>m.id===t.addedBy);
+    const assigned=t.assignees.map(id=>{const m=TEAM.find(x=>x.id===id);return m?`<span style="color:${m.color};font-size:10px;font-weight:600;">${m.name}</span>`:''}).join(', ');
+    const pri=PRIORITIES[t.priority]||{};
+    return `<div class="task-row">
+      <div class="task-check ${t.status==='done'?'done':''}" style="cursor:default;">${t.status==='done'?'✓':''}</div>
+      <div style="flex:1;">
+        <div class="task-text ${t.status==='done'?'done':''}">${t.desc}</div>
+        <div class="task-meta">
+          <span class="task-cat">${t.cat}</span>
+          <span><span class="priority-dot ${pri.cls}"></span>${pri.label}</span>
+          <span>by <span style="color:${addedBy?.color||'var(--muted)'};">${addedBy?.name||'?'}</span></span>
+          ${assigned?`<span>assigned: ${assigned}</span>`:''}
+          <span>${fmtTs(t.createdAt)}</span>
+          ${t.status==='done'&&t.doneAt?`<span style="color:var(--green);">✓ done ${fmtTs(t.doneAt)}</span>`:''}
+        </div>
+      </div>
+      <span style="font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;${t.status==='done'?'background:#14532d;color:#86efac':'background:#292524;color:#a8a29e'}">${t.status==='done'?'Done':'Open'}</span>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+//  DISPOSITIONS & CATEGORIES
+// ═══════════════════════════════════════
+function allDisps(){ return [...DEFAULT_DISPS,...customDisps]; }
+function getDisp(key){ return allDisps().find(d=>d.key===key); }
+function allTaskCats(){ return [...DEFAULT_CATS,...customCats]; }
+
+function rebuildFilters(){
+  const df=document.getElementById('disp-filter');
+  if(df) df.innerHTML='<option value="">All Dispositions</option>'+allDisps().map(d=>`<option value="${d.key}">${d.emoji} ${d.label}</option>`).join('');
+  const cf=document.getElementById('task-cat-filter');
+  if(cf) cf.innerHTML='<option value="">All Categories</option>'+allTaskCats().map(c=>`<option value="${c}">${c}</option>`).join('');
+}
+
+// ═══════════════════════════════════════
+//  TIMER
+// ═══════════════════════════════════════
+function fmtMs(ms){const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;}
+function loadTimerForCase(c){
+  clearInterval(timerInterval);timerRunning=false;timerAccum=c.timeSpentMs||0;timerStart=null;
+  updateTimerDisplay();
+  document.getElementById('timer-start-btn').style.display='';
+  document.getElementById('timer-pause-btn').style.display='none';
+  document.getElementById('panel-timer').classList.remove('running');
+}
+function updateTimerDisplay(){
+  const el=document.getElementById('panel-timer');if(!el)return;
+  const e=timerRunning?(timerAccum+Date.now()-timerStart):timerAccum;
+  el.textContent=fmtMs(e);
+  const tt=document.getElementById('panel-total-time');if(tt)tt.textContent=fmtMs(e);
+}
+function startTimer(){
+  if(timerRunning||!selectedCaseId)return;
+  timerRunning=true;timerStart=Date.now();
+  document.getElementById('timer-start-btn').style.display='none';
+  document.getElementById('timer-pause-btn').style.display='';
+  document.getElementById('panel-timer').classList.add('running');
+  timerInterval=setInterval(()=>{updateTimerDisplay();if((Date.now()-timerStart)%30000<1100)saveTimerToCase();},1000);
+}
+function pauseTimer(){
+  if(!timerRunning)return;
+  timerAccum+=Date.now()-timerStart;timerRunning=false;clearInterval(timerInterval);timerStart=null;
+  document.getElementById('timer-start-btn').style.display='';
+  document.getElementById('timer-pause-btn').style.display='none';
+  document.getElementById('panel-timer').classList.remove('running');
+  saveTimerToCase();
+}
+function resetTimer(){pauseTimer();timerAccum=0;updateTimerDisplay();saveTimerToCase();}
+function saveTimerToCase(){const c=allCases.find(x=>x.id===selectedCaseId);if(!c)return;c.timeSpentMs=timerRunning?(timerAccum+Date.now()-timerStart):timerAccum;saveCase(c);}
+
+// ═══════════════════════════════════════
+//  SIDEBAR & VIEWS
+// ═══════════════════════════════════════
+function renderTeamSidebar(){
+  document.getElementById('team-list').innerHTML=TEAM.map(m=>{
+    const count=myCases().filter(c=>c.assignees.includes(m.id)).length;
+    return `<div class="team-member" style="opacity:0.7;pointer-events:none;">
+      <div class="avatar" style="background:${m.color}">${initials(m.name)}</div>
+      <div><div class="member-name">${m.name}${m.id===currentUser?' (you)':''}</div><div class="member-count">${count} case${count!==1?'s':''}</div></div>
+    </div>`;
+  }).join('');
+}
+function setView(v,btn){
+  currentView=v;
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+
+// ═══════════════════════════════════════
+//  STATS (my data only)
+// ═══════════════════════════════════════
+function renderStats(){
+  const c=myCases(), t=myTasks();
+  document.getElementById('stat-total').textContent=c.length;
+  document.getElementById('stat-inprogress').textContent=c.filter(x=>['docs','verify','credit','sanction'].includes(x.stage)).length;
+  document.getElementById('stat-disburse').textContent=c.filter(x=>x.disposition==='disbursal').length;
+  document.getElementById('stat-pendency').textContent=c.filter(x=>x.disposition==='pendency').length;
+  document.getElementById('stat-hold').textContent=c.filter(x=>['hold','review'].includes(x.disposition)).length;
+  document.getElementById('badge-all').textContent=c.length;
+  document.getElementById('badge-urgent').textContent=c.filter(x=>x.priority==='high').length;
+  document.getElementById('badge-disburse').textContent=c.filter(x=>x.disposition==='disbursal').length;
+  document.getElementById('badge-pendency').textContent=c.filter(x=>x.disposition==='pendency').length;
+  document.getElementById('badge-tasks').textContent=t.filter(x=>x.status==='open').length;
+}
+
+// ═══════════════════════════════════════
+//  TABLE (my cases only)
+// ═══════════════════════════════════════
+function getFiltered(){
+  let list=myCases();
+  const q=document.getElementById('search-input').value.toLowerCase();
+  const stF=document.getElementById('stage-filter').value;
+  const dF=document.getElementById('disp-filter').value;
+  if(currentView==='urgent')   list=list.filter(c=>c.priority==='high');
+  if(currentView==='disburse') list=list.filter(c=>c.disposition==='disbursal');
+  if(currentView==='pendency') list=list.filter(c=>c.disposition==='pendency');
+  if(stF) list=list.filter(c=>c.stage===stF);
+  if(dF)  list=list.filter(c=>c.disposition===dF);
+  if(q)   list=list.filter(c=>c.caseId.toLowerCase().includes(q)||c.borrower.toLowerCase().includes(q)||(c.college||'').toLowerCase().includes(q));
+  return list;
+}
+function renderTable(){
+  renderStats();renderTeamSidebar();
+  const list=getFiltered(), tbody=document.getElementById('cases-tbody'), empty=document.getElementById('empty-state');
+  if(!list.length){tbody.innerHTML='';empty.style.display='flex';return;}
+  empty.style.display='none';
+  tbody.innerHTML=list.map(c=>{
+    const stage=STAGES[c.stage]||{}, pri=PRIORITIES[c.priority]||{};
+    const disp=c.disposition?getDisp(c.disposition):null;
+    const assignHtml=c.assignees.map(id=>{const m=TEAM.find(t=>t.id===id);if(!m)return'';return`<div class="assignee-chip"><div class="avatar" style="background:${m.color}">${initials(m.name)}</div>${m.name.split(' ')[0]}</div>`;}).join('');
+    const timerHtml=(c.timeSpentMs||0)>0?`<span class="timer-badge timer-paused">⏱ ${fmtMs(c.timeSpentMs)}</span>`:'<span style="color:var(--muted);font-size:10px;">—</span>';
+    const lastU=c.updates.length?`<strong>${c.updates[c.updates.length-1].by}</strong>: ${c.updates[c.updates.length-1].text.substring(0,50)}${c.updates[c.updates.length-1].text.length>50?'…':''}`:'<span style="color:var(--muted)">No updates</span>';
+    const dispHtml=disp?`<span class="disp-pill" style="background:${disp.color};color:${disp.textColor}">${disp.emoji} ${disp.label}</span>`:'<span style="color:var(--muted);font-size:10px;">—</span>';
+    const sel=selectedCaseId===c.id?'style="background:var(--surface2)"':'';
+    return `<tr onclick="openPanel('${c.id}')" ${sel}>
+      <td><div class="case-id">${c.caseId}</div><div class="borrower-name">${c.borrower}</div><div class="borrower-college">${c.college||''}</div><div class="ts-added">${fmtTs(c.createdAt)}</div></td>
+      <td><span class="stage-pill ${stage.cls}">${stage.label}</span></td>
+      <td><span class="priority-dot ${pri.cls}"></span>${pri.label}</td>
+      <td>${dispHtml}</td>
+      <td><div class="assignees">${assignHtml||'<span style="color:var(--muted);font-size:10px;">—</span>'}</div></td>
+      <td>${timerHtml}</td>
+      <td style="max-width:190px;font-size:11px;color:var(--muted);">${lastU}</td>
+      <td class="actions-cell">
+        <button class="icon-btn" onclick="event.stopPropagation();openEditModal('${c.id}')">✏️</button>
+        <button class="icon-btn" onclick="event.stopPropagation();deleteCase('${c.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function renderAll(){renderStats();renderTeamSidebar();renderTable();}
+
+// ═══════════════════════════════════════
+//  DETAIL PANEL
+// ═══════════════════════════════════════
+function openPanel(id){
+  const c=allCases.find(x=>x.id===id);if(!c)return;
+  if(selectedCaseId&&selectedCaseId!==id&&timerRunning)pauseTimer();
+  selectedCaseId=id;
+  document.getElementById('detail-panel').classList.add('open');
+  document.getElementById('panel-case-id').textContent=c.caseId;
+  document.getElementById('panel-borrower').textContent=c.borrower;
+  document.getElementById('panel-stage').innerHTML=`<span class="stage-pill ${STAGES[c.stage].cls}">${STAGES[c.stage].label}</span>`;
+  document.getElementById('panel-priority').textContent=PRIORITIES[c.priority].label;
+  document.getElementById('panel-college').textContent=c.college||'—';
+  document.getElementById('panel-amount').textContent=c.amount?'₹'+c.amount:'—';
+  document.getElementById('panel-added').textContent=fmtTs(c.createdAt);
+  document.getElementById('panel-assignees').innerHTML=c.assignees.map(id=>{const m=TEAM.find(t=>t.id===id);if(!m)return'';return`<div class="assignee-chip"><div class="avatar" style="background:${m.color}">${initials(m.name)}</div>${m.name}</div>`;}).join('')||'<span style="color:var(--muted);font-size:11px;">None</span>';
+  renderDispDisplay(c);renderUpdateLog(c);loadTimerForCase(c);renderTable();
+}
+function renderDispDisplay(c){
+  const el=document.getElementById('panel-disp-display');
+  if(c.disposition){const d=getDisp(c.disposition);el.innerHTML=d?`<span class="disp-pill" style="background:${d.color};color:${d.textColor};font-size:12px;padding:4px 11px;">${d.emoji} ${d.label}</span>`:'<span style="font-size:11px;color:var(--muted);">Unknown</span>';}
+  else{el.innerHTML='<span style="font-size:11px;color:var(--muted);">Not set</span>';}
+}
+function renderUpdateLog(c){
+  const el=document.getElementById('panel-updates');
+  if(!c.updates.length){el.innerHTML='<div style="font-size:11px;color:var(--muted);padding:5px 0;">No activity yet.</div>';return;}
+  el.innerHTML=[...c.updates].reverse().map(u=>{
+    const dt=u.disposition&&getDisp(u.disposition)?`<div style="margin-top:2px;font-size:10px;font-weight:700;color:${getDisp(u.disposition).textColor}">${getDisp(u.disposition).emoji} ${getDisp(u.disposition).label}</div>`:'';
+    return`<div class="update-entry"><div style="flex:1"><div style="display:flex;gap:5px;margin-bottom:2px;align-items:center;"><span style="font-size:10px;font-weight:600;color:var(--text)">${u.by}</span><span style="font-size:10px;color:var(--muted)">· ${fmtTs(u.ts)}</span></div><div class="update-text">${u.text}</div>${dt}</div></div>`;
+  }).join('');
+}
+function addUpdateFromPanel(){
+  const input=document.getElementById('new-update-input'), text=input.value.trim();
+  if(!text||!selectedCaseId)return;
+  const c=allCases.find(x=>x.id===selectedCaseId);if(!c)return;
+  const m=TEAM.find(t=>t.id===currentUser);
+  const upd={id:uid(),caseId:c.id,by:m?m.name:'You',text,ts:Date.now()};c.updates.push(upd);
+  input.value='';await postUpdate(upd);renderUpdateLog(c);renderTable();toast('Note posted');
+}
+function closePanel(){if(timerRunning)pauseTimer();selectedCaseId=null;document.getElementById('detail-panel').classList.remove('open');renderTable();}
+
+// ═══════════════════════════════════════
+//  DISPOSITION MODAL
+// ═══════════════════════════════════════
+function openDispModal(){
+  selectedDisp=null;document.getElementById('disp-note').value='';rebuildDispPicker();openModal('disp-modal');
+}
+function rebuildDispPicker(){
+  const c=allCases.find(x=>x.id===selectedCaseId);
+  document.getElementById('disp-picker').innerHTML=allDisps().map(d=>{
+    const isCur=c&&c.disposition===d.key;
+    return`<div class="disp-option ${isCur?'sel-active':''}" data-key="${d.key}" style="${isCur?`background:${d.color};color:${d.textColor};border-color:${d.textColor}`:''}" onclick="selectDisp(this,'${d.key}')">${d.emoji} ${d.label}</div>`;
+  }).join('');
+}
+function selectDisp(el,key){
+  document.querySelectorAll('.disp-option').forEach(e=>{e.className='disp-option';e.style='';});
+  const d=getDisp(key);el.style=`background:${d.color};color:${d.textColor};border-color:${d.textColor};`;el.classList.add('sel-active');selectedDisp=key;
+}
+function promptCustomDisp(){
+  const label=prompt('New disposition name (e.g. "Sent to Legal"):');if(!label||!label.trim())return;
+  const key='cd_'+Date.now();
+  const cols=[['#1a1a2e','#818cf8'],['#0f2027','#67e8f9'],['#1a2e1a','#86efac'],['#2e1a1a','#f87171'],['#2e2a1a','#fbbf24']];
+  const [color,textColor]=cols[Math.floor(Math.random()*cols.length)];
+  const emojis=['📌','🔖','📎','🗂','💬','📝'];
+  customDisps.push({key,label:label.trim(),color,textColor,emoji:emojis[Math.floor(Math.random()*emojis.length)]});
+  saveDisps();rebuildFilters();rebuildDispPicker();
+  setTimeout(()=>{const el=document.querySelector(`[data-key="${key}"]`);if(el)selectDisp(el,key);},50);
+  toast(`"${label.trim()}" added`);
+}
+function submitDisposition(){
+  if(!selectedDisp){toast('Select a disposition','red');return;}
+  const note=document.getElementById('disp-note').value.trim();if(!note){toast('Add a note','red');return;}
+  const c=allCases.find(x=>x.id===selectedCaseId);if(!c)return;
+  const m=TEAM.find(t=>t.id===currentUser);
+  c.disposition=selectedDisp;const du={id:uid(),caseId:c.id,by:m?m.name:'You',text:note,ts:Date.now(),disposition:selectedDisp};c.updates.push(du);
+  if(timerRunning)pauseTimer();await saveCase(c);await postUpdate(du);closeModal('disp-modal');
+  renderDispDisplay(c);renderUpdateLog(c);renderAll();toast(`Disposition: ${getDisp(selectedDisp)?.label}`);
+}
+
+// ═══════════════════════════════════════
+//  ADD / EDIT CASE
+// ═══════════════════════════════════════
+function openAddModal(){
+  editingId=null;
+  document.getElementById('add-modal-title').textContent='Add New Case';
+  document.getElementById('add-submit-btn').textContent='Add Case';
+  document.getElementById('add-submit-btn').onclick=submitAddCase;
+  ['f-caseid','f-borrower','f-college','f-amount','f-note'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-stage').value='docs';document.getElementById('f-priority').value='med';
+  renderAssigneePicker('add-assignee-picker',[currentUser]);
+  openModal('add-modal');
+}
+function submitAddCase(){
+  const caseId=document.getElementById('f-caseid').value.trim(), borrower=document.getElementById('f-borrower').value.trim();
+  if(!caseId||!borrower){toast('Case ID & Borrower required','red');return;}
+  const note=document.getElementById('f-note').value.trim(), m=TEAM.find(t=>t.id===currentUser);
+  const c={id:uid(),caseId,borrower,college:document.getElementById('f-college').value.trim(),amount:document.getElementById('f-amount').value.trim(),stage:document.getElementById('f-stage').value,priority:document.getElementById('f-priority').value,assignees:getPickerSelected('add-assignee-picker'),updates:note?[{by:m?m.name:'You',text:note,ts:Date.now()}]:[],disposition:null,timeSpentMs:0,addedBy:currentUser,createdAt:Date.now()};
+  allCases.unshift(c);await saveCase(c);renderAll();closeModal('add-modal');toast('Case added ✓');
+}
+function openEditModal(id){
+  const c=allCases.find(x=>x.id===id);if(!c)return;editingId=id;
+  document.getElementById('add-modal-title').textContent='Edit Case';
+  document.getElementById('add-submit-btn').textContent='Save Changes';
+  document.getElementById('add-submit-btn').onclick=submitEditCase;
+  document.getElementById('f-caseid').value=c.caseId;document.getElementById('f-borrower').value=c.borrower;
+  document.getElementById('f-college').value=c.college||'';document.getElementById('f-amount').value=c.amount||'';
+  document.getElementById('f-stage').value=c.stage;document.getElementById('f-priority').value=c.priority;
+  document.getElementById('f-note').value='';renderAssigneePicker('add-assignee-picker',c.assignees);
+  openModal('add-modal');
+}
+function submitEditCase(){
+  const c=allCases.find(x=>x.id===editingId);if(!c)return;
+  const m=TEAM.find(t=>t.id===currentUser);
+  c.caseId=document.getElementById('f-caseid').value.trim();c.borrower=document.getElementById('f-borrower').value.trim();
+  c.college=document.getElementById('f-college').value.trim();c.amount=document.getElementById('f-amount').value.trim();
+  c.stage=document.getElementById('f-stage').value;c.priority=document.getElementById('f-priority').value;
+  c.assignees=getPickerSelected('add-assignee-picker');
+  const note=document.getElementById('f-note').value.trim();if(note)c.updates.push({by:m?m.name:'You',text:note,ts:Date.now()});
+  await saveCase(c);renderAll();closeModal('add-modal');if(selectedCaseId===c.id)openPanel(c.id);toast('Case updated ✓');
+}
+function deleteCase(id){
+  if(!confirm('Delete this case?'))return;
+  if(selectedCaseId===id){if(timerRunning)pauseTimer();closePanel();}
+  allCases=allCases.filter(c=>c.id!==id);await eraseCase(id);renderAll();toast('Deleted');
+}
+
+// ═══════════════════════════════════════
+//  TASKS (my tasks only)
+// ═══════════════════════════════════════
+function openTaskModal(){
+  editingTaskId=null;
+  document.getElementById('task-modal-title').textContent='Add Task';
+  document.getElementById('task-submit-btn').textContent='Add Task';
+  document.getElementById('task-submit-btn').onclick=submitTask;
+  document.getElementById('t-desc').value='';document.getElementById('t-priority').value='med';
+  rebuildTaskCatSelect();renderAssigneePicker('task-assignee-picker',[currentUser]);
+  openModal('task-modal');
+}
+function rebuildTaskCatSelect(){
+  document.getElementById('t-cat').innerHTML=allTaskCats().map(c=>`<option value="${c}">${c}</option>`).join('');
+}
+function promptCustomTaskCat(){
+  const name=prompt('New category name:');if(!name||!name.trim())return;
+  customCats.push(name.trim());saveCats();rebuildFilters();rebuildTaskCatSelect();
+  document.getElementById('t-cat').value=name.trim();toast(`Category "${name.trim()}" added`);
+}
+function submitTask(){
+  const desc=document.getElementById('t-desc').value.trim();if(!desc){toast('Description required','red');return;}
+  const m=TEAM.find(t=>t.id===currentUser);
+  if(editingTaskId){
+    const t=allTasks.find(x=>x.id===editingTaskId);if(!t)return;
+    t.desc=desc;t.cat=document.getElementById('t-cat').value;t.priority=document.getElementById('t-priority').value;t.assignees=getPickerSelected('task-assignee-picker');
+    await saveTask(t);renderTasks();renderStats();closeModal('task-modal');toast('Task updated');
+  } else {
+    const nt={id:uid(),desc,cat:document.getElementById('t-cat').value,priority:document.getElementById('t-priority').value,assignees:getPickerSelected('task-assignee-picker'),addedBy:currentUser,status:'open',createdAt:Date.now()};allTasks.unshift(nt);
+    await saveTask(nt);renderTasks();renderStats();closeModal('task-modal');toast('Task added ✓');
+  }
+}
+function toggleTaskDone(id){const t=allTasks.find(x=>x.id===id);if(!t)return;t.status=t.status==='done'?'open':'done';if(t.status==='done')t.doneAt=Date.now();await saveTask(t);renderTasks();renderStats();}
+function deleteTask(id){if(!confirm('Delete?'))return;allTasks=allTasks.filter(t=>t.id!==id);await eraseTask(id);renderTasks();renderStats();toast('Task deleted');}
+function editTask(id){
+  const t=allTasks.find(x=>x.id===id);if(!t)return;editingTaskId=id;
+  document.getElementById('task-modal-title').textContent='Edit Task';document.getElementById('task-submit-btn').textContent='Save';document.getElementById('task-submit-btn').onclick=submitTask;
+  document.getElementById('t-desc').value=t.desc;document.getElementById('t-priority').value=t.priority;
+  rebuildTaskCatSelect();document.getElementById('t-cat').value=t.cat;
+  renderAssigneePicker('task-assignee-picker',t.assignees);openModal('task-modal');
+}
+function renderTasks(){
+  renderStats();
+  let list=myTasks();
+  const cf=document.getElementById('task-cat-filter')?.value||'';
+  const sf=document.getElementById('task-status-filter')?.value||'';
+  if(cf)list=list.filter(t=>t.cat===cf);if(sf)list=list.filter(t=>t.status===sf);
+  const el=document.getElementById('tasks-list');
+  if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">No tasks yet</div><div style="font-size:12px;">Add tasks you're working on today.</div></div>`;return;}
+  const byDate={};list.forEach(t=>{const dk=new Date(t.createdAt).toDateString();if(!byDate[dk])byDate[dk]=[];byDate[dk].push(t);});
+  el.innerHTML=Object.entries(byDate).map(([date,items])=>`
+    <div style="padding:7px 16px 2px;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--border);background:var(--surface);">${date}</div>
+    ${items.map(t=>{
+      const pri=PRIORITIES[t.priority]||{};
+      const assignHtml=t.assignees.map(id=>{const m=TEAM.find(x=>x.id===id);if(!m)return'';return`<div class="assignee-chip"><div class="avatar" style="background:${m.color};width:14px;height:14px;font-size:6px;">${initials(m.name)}</div>${m.name.split(' ')[0]}</div>`;}).join('');
+      return`<div class="task-row"><div class="task-check ${t.status==='done'?'done':''}" onclick="toggleTaskDone('${t.id}')">${t.status==='done'?'✓':''}</div><div style="flex:1"><div class="task-text ${t.status==='done'?'done':''}">${t.desc}</div><div class="task-meta"><span class="task-cat">${t.cat}</span><span><span class="priority-dot ${pri.cls}" style="width:6px;height:6px;"></span>${pri.label}</span><span>${fmtTs(t.createdAt)}</span>${t.status==='done'&&t.doneAt?`<span style="color:var(--green)">✓ done ${fmtTs(t.doneAt)}</span>`:''}<div class="assignees">${assignHtml}</div></div></div><div style="display:flex;gap:4px;padding-top:2px;"><button class="icon-btn" onclick="editTask('${t.id}')">✏️</button><button class="icon-btn" onclick="deleteTask('${t.id}')">🗑</button></div></div>`;
+    }).join('')}`).join('');
+}
+
+// ═══════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════
+function switchTab(name,btn){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');document.getElementById('tab-'+name).classList.add('active');
+  if(name==='tasks')renderTasks();
+}
+
+// ═══════════════════════════════════════
+//  PASTE PARSER
+// ═══════════════════════════════════════
+let parseDebounce;
+function openPasteModal(){document.getElementById('paste-input').value='';document.getElementById('parse-result').style.display='none';document.getElementById('paste-assign-group').style.display='none';document.getElementById('paste-confirm-btn').disabled=true;parsedFromChat=null;renderAssigneePicker('paste-assignee-picker',[currentUser]);openModal('paste-modal');}
+function parseChat(){clearTimeout(parseDebounce);const text=document.getElementById('paste-input').value.trim();if(text.length<6){document.getElementById('parse-result').style.display='none';document.getElementById('paste-confirm-btn').disabled=true;parsedFromChat=null;return;}parseDebounce=setTimeout(()=>runRuleParse(text),300);}
+function runRuleParse(text){
+  const t=text;let caseId='';
+  for(const pat of[/\b([A-Z]{2,5}-\d{4}-\d{3,8})\b/i,/\b([A-Z]{2,6}-\d{3,8})\b/i,/(?:case\s*[:#]?\s*)([A-Z0-9\-]{4,20})/i,/(?:los\s*[:#]?\s*)([A-Z0-9\-]{3,20})/i,/\b(KH[A-Z0-9\-]{2,15})\b/i]){const m=t.match(pat);if(m){caseId=m[1].toUpperCase();break;}}
+  let amount='';
+  for(const pat of[/(?:₹|rs\.?\s*|inr\s*)(\d+(?:\.\d+)?)\s*(?:l(?:ac(?:s|hs?)?|akhs?)?)\b/i,/(\d+(?:\.\d+)?)\s*(?:l(?:ac(?:s|hs?)?|akhs?))\b/i,/(?:₹|rs\.?\s*|inr\s*)([\d,]{4,12})/i]){const m=t.match(pat);if(m){const raw=m[1].replace(/,/g,'');amount=(/^\d+(\.\d+)?$/.test(raw)&&parseFloat(raw)<1000)?Math.round(parseFloat(raw)*100000).toLocaleString('en-IN'):parseInt(raw).toLocaleString('en-IN');break;}}
+  const stageMap=[{keys:['ready to disburse','disburs'],stage:'disburse'},{keys:['sanctioned','sanction letter'],stage:'sanction'},{keys:['credit review','push to credit'],stage:'credit'},{keys:['verified','verification done','kyc done'],stage:'verify'},{keys:['on hold'],stage:'hold'},{keys:['docs submitted','documents submitted','docs received'],stage:'docs'}];
+  let stage='docs';const tl=t.toLowerCase();for(const{keys,stage:s}of stageMap){if(keys.some(k=>tl.includes(k))){stage=s;break;}}
+  let priority='med';if(['urgent','asap','high priority','immediate','today only'].some(k=>tl.includes(k)))priority='high';else if(['low priority','no rush'].some(k=>tl.includes(k)))priority='low';
+  let college='';for(const pat of[/(?:iit|nit|bits|vit|manipal|srm|lpu|iiit|iim|college|university|institute)[^\n,;]{0,40}/i]){const m=t.match(pat);if(m){college=m[0].trim().substring(0,60);break;}}
+  let borrower='';for(const pat of[/(?:student|borrower|applicant|name)[:\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})/i,/(?:for\s+)([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?:\s*[,\(])/]){const m=t.match(pat);if(m&&m[1].length>3){const skip=['case','loan','docs','please','team','hi','hello'];if(!skip.some(s=>m[1].toLowerCase().startsWith(s))){borrower=m[1].trim();break;}}}
+  parsedFromChat={caseId,borrower,college,amount,stage,priority};
+  document.getElementById('pr-caseid').textContent=caseId||'—';document.getElementById('pr-borrower').textContent=borrower||'—';document.getElementById('pr-college').textContent=college||'—';document.getElementById('pr-amount').textContent=amount?'₹'+amount:'—';document.getElementById('pr-stage').textContent=STAGES[stage]?.label||'—';document.getElementById('pr-priority').textContent=PRIORITIES[priority]?.label||'—';
+  document.getElementById('parse-result').style.display='block';document.getElementById('paste-assign-group').style.display='block';document.getElementById('paste-confirm-btn').disabled=false;
+}
+function confirmPaste(){
+  if(!parsedFromChat)return;const p=parsedFromChat,original=document.getElementById('paste-input').value.trim(),m=TEAM.find(t=>t.id===currentUser);
+  allCases.unshift({id:uid(),caseId:p.caseId||'KH-UNKNOWN',borrower:p.borrower||'Unknown',college:p.college||'',amount:p.amount||'',stage:p.stage||'docs',priority:p.priority||'med',assignees:getPickerSelected('paste-assignee-picker'),updates:[{by:'Sales (Chat)',text:original.substring(0,200),ts:Date.now()}],disposition:null,timeSpentMs:0,addedBy:currentUser,createdAt:Date.now()});
+  await saveCase(c);renderAll();closeModal('paste-modal');toast('Case imported ✓');
+}
+
+// ═══════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════
+function renderAssigneePicker(cid,selected){document.getElementById(cid).innerHTML=TEAM.map(m=>`<div class="assignee-toggle ${selected.includes(m.id)?'active':''}" data-id="${m.id}" onclick="this.classList.toggle('active')"><div class="avatar" style="background:${m.color}">${initials(m.name)}</div>${m.name.split(' ')[0]}</div>`).join('');}
+function getPickerSelected(cid){return[...document.querySelectorAll(`#${cid} .assignee-toggle.active`)].map(e=>e.dataset.id).filter(Boolean);}
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function uid(){return Math.random().toString(36).substring(2,10);}
+function initials(name){return name.split(/\s+/).map(w=>w[0]).join('').substring(0,2).toUpperCase();}
+function fmtTs(ts){if(!ts)return'—';const d=new Date(ts);return d.toLocaleDateString('en-IN',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});}
+function toast(msg,type='green'){const el=document.getElementById('toast');el.textContent=msg;el.style.background=type==='red'?'var(--red)':'var(--green)';el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500);}
+
+document.querySelectorAll('.modal-bg').forEach(bg=>bg.addEventListener('click',e=>{if(e.target===bg)bg.classList.remove('open');}));
+
+async function init(){await loadAll();renderLogin();}
+init();
+</script>
+</body>
+</html>
